@@ -121,7 +121,9 @@ export class HttpClient {
         retryable: false,
         message: errorData.message || 'Conflict detected',
         status,
-        details: errorData.serverData,
+        localValue: undefined,
+        remoteValue: errorData.serverData || errorData,
+        resolution: 'manual',
       } as ConflictError;
     }
 
