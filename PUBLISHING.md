@@ -44,9 +44,9 @@ When you merge the "Version Packages" PR to `main`, the workflow will:
 2. Publish it to npm under `@dexie-kit/sync`
 3. Create a GitHub release
 
-## Manual Publishing (for maintainers)
+## Manual Publishing (for maintainers only)
 
-If you need to publish manually:
+If you need to publish manually (emergency situations or when the automated workflow fails):
 
 ```bash
 # 1. Update version and changelog
@@ -56,7 +56,7 @@ npm run version
 npm run release
 ```
 
-Note: You need to be logged in to npm with an account that has publish access to the `@dexie-kit` scope.
+**Note**: Manual publishing should only be done by package maintainers with npm publish access to the `@dexie-kit` scope, and only in situations where the automated GitHub Actions workflow cannot be used.
 
 ## Changeset Types
 

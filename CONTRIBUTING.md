@@ -1,6 +1,6 @@
-# Contributing to dexie-sync-kit
+# Contributing to @dexie-kit/sync
 
-Thank you for your interest in contributing to dexie-sync-kit! 🎉
+Thank you for your interest in contributing to @dexie-kit/sync! 🎉
 
 ## Development Setup
 
@@ -44,12 +44,20 @@ Thank you for your interest in contributing to dexie-sync-kit! 🎉
    git commit -m "Description of your changes"
    ```
 
-4. Push to your fork:
+4. Create a changeset (for version-worthy changes):
+   ```bash
+   npm run changeset
+   ```
+   - Select the appropriate version bump (patch, minor, or major)
+   - Write a summary of the changes for the changelog
+   - Commit the generated changeset file
+
+5. Push to your fork:
    ```bash
    git push origin feature/your-feature-name
    ```
 
-5. Create a Pull Request
+6. Create a Pull Request
 
 ## Code Style
 
@@ -57,6 +65,28 @@ Thank you for your interest in contributing to dexie-sync-kit! 🎉
 - Follow existing code style (enforced by ESLint and Prettier)
 - Add JSDoc comments for public APIs
 - Write tests for new features
+
+## Changesets
+
+This project uses [Changesets](https://github.com/changesets/changesets) for version management and changelog generation.
+
+### When to create a changeset:
+
+- **Bug fixes** (patch): Create a changeset with type "patch"
+- **New features** (minor): Create a changeset with type "minor"  
+- **Breaking changes** (major): Create a changeset with type "major"
+- **Documentation only**: No changeset needed
+- **Tests only**: No changeset needed
+
+### How to create a changeset:
+
+```bash
+npm run changeset
+```
+
+Follow the prompts to describe your changes. The changeset file should be committed with your PR.
+
+For more details, see [PUBLISHING.md](./PUBLISHING.md).
 
 ## Testing
 
@@ -93,7 +123,7 @@ Add support for custom pagination strategies
 
 When reporting bugs, please include:
 
-- dexie-sync-kit version
+- dexie-sync-kit version (now published as @dexie-kit/sync)
 - Dexie version
 - Browser/Node.js version
 - Steps to reproduce
