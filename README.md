@@ -1,8 +1,8 @@
-# dexie-sync-kit
+# @dexie-kit/sync
 
 > Offline-first sync framework for Dexie.js with REST API support
 
-[![npm version](https://img.shields.io/npm/v/dexie-sync-kit.svg)](https://www.npmjs.com/package/dexie-sync-kit)
+[![npm version](https://img.shields.io/npm/v/@dexie-kit/sync.svg)](https://www.npmjs.com/package/@dexie-kit/sync)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Features
@@ -19,14 +19,14 @@
 ## Installation
 
 ```bash
-npm install dexie-sync-kit dexie
+npm install @dexie-kit/sync dexie
 ```
 
 ## Quick Start
 
 ```typescript
 import Dexie from 'dexie';
-import { startSync, defineRoutes } from 'dexie-sync-kit';
+import { startSync, defineRoutes } from '@dexie-kit/sync';
 
 // 1. Define your database
 const db = new Dexie('myapp');
