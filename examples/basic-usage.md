@@ -1,12 +1,12 @@
 # Basic Usage Example
 
-This example demonstrates the basic usage of dexie-sync-kit.
+This example demonstrates the basic usage of @dexie-kit/sync.
 
 ## Setup
 
 ```typescript
 import Dexie from 'dexie';
-import { startSync, defineRoutes } from 'dexie-sync-kit';
+import { startSync, defineRoutes } from '@dexie-kit/sync';
 
 // 1. Define your database
 const db = new Dexie('myapp');
