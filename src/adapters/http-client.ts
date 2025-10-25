@@ -1,4 +1,4 @@
-import type { SyncError } from '../core/types';
+import type { SyncError, ConflictError } from '../core/types';
 import { calculateBackoff } from '../utils/backoff';
 
 export interface HttpOptions {
@@ -38,7 +38,7 @@ export class HttpClient {
     throw lastError;
   }
 
-  private async executeRequest<T>(options: HttpOptions, attempt: number): Promise<T> {
+  private async executeRequest<T>(options: HttpOptions, _attempt: number): Promise<T> {
     const url = options.url.startsWith('http') ? options.url : `${this.baseUrl}${options.url}`;
 
     const startTime = Date.now();
@@ -75,7 +75,7 @@ export class HttpClient {
 
     // Parse response
     try {
-      return bodyText ? JSON.parse(bodyText) : null;
+      return bodyText ? JSON.parse(bodyText) : (null as T);
     } catch {
       return bodyText as any;
     }
@@ -121,10 +121,8 @@ export class HttpClient {
         retryable: false,
         message: errorData.message || 'Conflict detected',
         status,
-        localValue: undefined,
-        remoteValue: errorData.serverData,
-        resolution: 'manual',
-      };
+        details: errorData.serverData,
+      } as ConflictError;
     }
 
     // Rate limit (429)

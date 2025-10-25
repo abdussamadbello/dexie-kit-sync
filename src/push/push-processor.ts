@@ -1,5 +1,5 @@
 import type Dexie from 'dexie';
-import type { PushResult, SyncContext, DeadLetterItem, ErrorConfig } from '../core/types';
+import type { OutboxItem, PushResult, SyncContext, DeadLetterItem } from '../core/types';
 import { OutboxManager } from './outbox-manager';
 import { RestAdapter } from '../adapters/rest-adapter';
 import { calculateBackoff } from '../utils/backoff';
@@ -9,7 +9,7 @@ export class PushProcessor {
   private deadLettersTable: Dexie.Table<DeadLetterItem, number>;
 
   constructor(
-    private db: Dexie,
+    db: Dexie,
     private adapter: RestAdapter,
     private context: SyncContext
   ) {
@@ -99,7 +99,7 @@ export class PushProcessor {
     await this.outboxManager.remove(item.id!);
   }
 
-  private getMaxRetries(errorType: string): number {
+  private getMaxRetries(_errorType: string): number {
     const errorConfig = this.context.config.errors;
     if (!errorConfig?.maxRetries) {
       return 5; // Default

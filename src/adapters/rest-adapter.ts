@@ -50,7 +50,7 @@ export class RestAdapter {
       url,
       headers,
       body: config.method !== 'DELETE' ? body : undefined,
-      onProgress: (uploaded, downloaded, latency) => {
+      onProgress: (_uploaded, _downloaded, _latency) => {
         // Track metrics if needed
       },
     });

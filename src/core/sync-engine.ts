@@ -240,8 +240,6 @@ export class SyncEngine implements ISyncEngine {
   }
 
   async getMetrics(): Promise<SyncMetrics> {
-    const metrics = this.metricsCollector.getMetrics();
-    
     // Update queue metrics
     const depth = await this.outboxManager.getDepth();
     this.metricsCollector.updateQueueDepth(depth);
@@ -255,7 +253,7 @@ export class SyncEngine implements ISyncEngine {
     return this.metricsCollector.getMetrics();
   }
 
-  async isStale(table: string, key: string | number): Promise<boolean> {
+  async isStale(_table: string, _key: string | number): Promise<boolean> {
     // TODO: Implement staleness tracking
     return false;
   }

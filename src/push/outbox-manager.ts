@@ -4,7 +4,7 @@ import type { OutboxItem, Operation } from '../core/types';
 export class OutboxManager {
   private outboxTable: Dexie.Table<OutboxItem, number>;
 
-  constructor(private db: Dexie) {
+  constructor(db: Dexie) {
     this.outboxTable = db.table('outbox');
   }
 
@@ -20,7 +20,7 @@ export class OutboxManager {
   }
 
   async getAll(table?: string): Promise<OutboxItem[]> {
-    let query = this.outboxTable.orderBy('createdAt');
+    const query = this.outboxTable.orderBy('createdAt');
 
     if (table) {
       return query.filter((item) => item.table === table).toArray();

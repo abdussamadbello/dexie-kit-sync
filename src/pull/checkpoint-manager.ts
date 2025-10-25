@@ -4,7 +4,7 @@ import type { Checkpoint } from '../core/types';
 export class CheckpointManager {
   private checkpointsTable: Dexie.Table<Checkpoint, string>;
 
-  constructor(private db: Dexie) {
+  constructor(db: Dexie) {
     this.checkpointsTable = db.table('checkpoints');
   }
 

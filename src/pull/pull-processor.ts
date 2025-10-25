@@ -1,19 +1,16 @@
 import type Dexie from 'dexie';
 import type { PullResult, SyncContext } from '../core/types';
 import { RestAdapter } from '../adapters/rest-adapter';
-import { CheckpointManager } from './checkpoint-manager';
 import { ChangeApplier } from './change-applier';
 
 export class PullProcessor {
-  private checkpointManager: CheckpointManager;
   private changeApplier: ChangeApplier;
 
   constructor(
-    private db: Dexie,
+    db: Dexie,
     private adapter: RestAdapter,
     private context: SyncContext
   ) {
-    this.checkpointManager = new CheckpointManager(db);
     this.changeApplier = new ChangeApplier(db, context);
   }
 
