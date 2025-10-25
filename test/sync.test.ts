@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import Dexie from 'dexie';
 import { startSync, defineRoutes } from '../src/index';
 
-describe('dexie-sync-kit', () => {
+describe('@dexie-kit/sync', () => {
   let db: Dexie;
 
   beforeEach(async () => {

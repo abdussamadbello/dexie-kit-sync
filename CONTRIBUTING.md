@@ -7,8 +7,8 @@ Thank you for your interest in contributing to @dexie-kit/sync! 🎉
 1. Fork the repository
 2. Clone your fork:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/dexie-sync-kit.git
-   cd dexie-sync-kit
+   git clone https://github.com/YOUR_USERNAME/dexie-kit-sync.git
+   cd dexie-kit-sync
    ```
 
 3. Install dependencies:
@@ -123,7 +123,7 @@ Add support for custom pagination strategies
 
 When reporting bugs, please include:
 
-- dexie-sync-kit version (now published as @dexie-kit/sync)
+- @dexie-kit/sync version (published from dexie-kit-sync repository)
 - Dexie version
 - Browser/Node.js version
 - Steps to reproduce

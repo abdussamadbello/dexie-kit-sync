@@ -42,12 +42,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/abdussamadbello/dexie-sync-kit.git"
+    "url": "https://github.com/abdussamadbello/dexie-kit-sync.git"
   },
   "bugs": {
-    "url": "https://github.com/abdussamadbello/dexie-sync-kit/issues"
+    "url": "https://github.com/abdussamadbello/dexie-kit-sync/issues"
   },
-  "homepage": "https://github.com/abdussamadbello/dexie-sync-kit#readme",
+  "homepage": "https://github.com/abdussamadbello/dexie-kit-sync#readme",
   "publishConfig": {
     "access": "public"
   },
