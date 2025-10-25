@@ -40,6 +40,14 @@
   ],
   "author": "Abdussamad Bello",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/abdussamadbello/dexie-sync-kit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/abdussamadbello/dexie-sync-kit/issues"
+  },
+  "homepage": "https://github.com/abdussamadbello/dexie-sync-kit#readme",
   "publishConfig": {
     "access": "public"
   },
