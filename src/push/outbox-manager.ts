@@ -41,6 +41,28 @@ export class OutboxManager {
     await this.outboxTable.delete(id);
   }
 
+  /**
+   * If this record's create is still sitting unsynced in the outbox, the
+   * server never knew it existed — drop the whole queued history for it
+   * (the create and any updates) instead of pushing a delete. Returns true
+   * if it cancelled the record's history this way (caller should not queue
+   * the delete itself); false if a create already went out (there's a real
+   * server-side record to delete, so the delete must still be tracked).
+   */
+  async cancelIfNeverSynced(table: string, key: string | number): Promise<boolean> {
+    const pending = await this.outboxTable
+      .filter((item) => item.table === table && item.key === key)
+      .toArray();
+
+    const hasUnsyncedCreate = pending.some((item) => item.operation === 'create');
+    if (!hasUnsyncedCreate) {
+      return false;
+    }
+
+    await this.outboxTable.bulkDelete(pending.map((item) => item.id!));
+    return true;
+  }
+
   async updateRetry(id: number, error: string, nextRetryAt: number): Promise<void> {
     const item = await this.outboxTable.get(id);
     if (item) {

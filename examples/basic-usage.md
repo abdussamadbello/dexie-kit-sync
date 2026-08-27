@@ -8,11 +8,12 @@ This example demonstrates the basic usage of @dexie-kit/sync.
 import Dexie from 'dexie';
 import { startSync, defineRoutes } from '@dexie-kit/sync';
 
-// 1. Define your database
+// 1. Define your database. Primary keys are client-generated (no `++`) —
+// see the "ID Strategies" section of the README for why.
 const db = new Dexie('myapp');
 db.version(1).stores({
-  posts: '++id, title, content, updatedAt, version',
-  comments: '++id, postId, content, updatedAt',
+  posts: 'id, title, content, updatedAt, version',
+  comments: 'id, postId, content, updatedAt',
 });
 
 // 2. Configure routes
@@ -104,8 +105,9 @@ const syncEngine = startSync(db, {
 // 4. Start the sync engine
 await syncEngine.start();
 
-// 5. Use your app normally
+// 5. Use your app normally — the id is assigned on the client
 await db.posts.add({
+  id: crypto.randomUUID(),
   title: 'My First Post',
   content: 'Hello World!',
   updatedAt: new Date().toISOString(),
@@ -159,6 +161,9 @@ app.get('/api/posts', async (req, res) => {
 
 // POST /api/posts
 app.post('/api/posts', async (req, res) => {
+  // req.body.id is the client-generated id — the `id` column must accept an
+  // externally-supplied value rather than auto-incrementing. See "ID
+  // Strategies" in the README if your database can't do that.
   const post = await db.posts.create({
     data: {
       ...req.body,

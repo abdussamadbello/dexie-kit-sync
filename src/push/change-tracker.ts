@@ -46,10 +46,13 @@ export class ChangeTracker {
         trackChange('update', primKey, { ...obj, ...modifications });
       });
 
-      // Hook into deleting
-      const deletingHook = table.hook('deleting', (primKey, _obj, transaction) => {
+      // Hook into deleting. `obj` (the record as it existed) is captured too —
+      // routes that address the server by a separate serverId field (see the
+      // "ID Strategies" section of the README) need it on the delete request,
+      // since the record is already gone locally by the time this pushes.
+      const deletingHook = table.hook('deleting', (primKey, obj, transaction) => {
         if (reconciliationTransactions.has(transaction)) return;
-        trackChange('delete', primKey);
+        trackChange('delete', primKey, obj);
       });
 
       this.hooks.set(tableName, { creatingHook, updatingHook, deletingHook });
@@ -78,10 +81,16 @@ export class ChangeTracker {
     // since IndexedDB transactions can't touch stores outside their declared
     // scope. Deferring past the current task lets this write start its own
     // transaction instead of trying to join that one.
-    queueMicrotask(() => {
-      this.outboxManager.add(table, operation, key, obj).catch((error) => {
+    queueMicrotask(async () => {
+      try {
+        if (operation === 'delete') {
+          const cancelled = await this.outboxManager.cancelIfNeverSynced(table, key);
+          if (cancelled) return;
+        }
+        await this.outboxManager.add(table, operation, key, obj);
+      } catch (error) {
         console.error('Failed to track change:', error);
-      });
+      }
     });
   }
 }
