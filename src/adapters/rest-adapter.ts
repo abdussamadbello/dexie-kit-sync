@@ -3,11 +3,14 @@ import type {
   SyncContext,
   RouteConfiguration,
   OperationConfig,
+  RateLimitConfig,
 } from '../core/types';
 import { HttpClient } from './http-client';
+import { RateLimiter } from '../utils/rate-limiter';
 
 export class RestAdapter {
   private httpClient: HttpClient;
+  private rateLimiters = new Map<string, RateLimiter>();
 
   constructor(
     baseUrl: string,
@@ -41,8 +44,17 @@ export class RestAdapter {
       throw new Error(`No ${item.operation} config for table: ${item.table}`);
     }
 
-    const url = typeof config.url === 'function' ? config.url(item.obj) : config.url;
-    const body = config.body ? config.body(item.obj) : item.obj;
+    if (tableRoute.rateLimit) {
+      await this.getRateLimiter(item.table, tableRoute.rateLimit).throttle(item.table);
+    }
+
+    // Deletes never carry a payload (the record is already gone locally by the
+    // time this runs), so fall back to a synthetic { key: item.key } object —
+    // otherwise url/body callbacks written as `item => item.id` (per the README)
+    // would crash on undefined.
+    const payload = item.obj !== undefined ? item.obj : { id: item.key };
+    const url = typeof config.url === 'function' ? config.url(payload) : config.url;
+    const body = config.body ? config.body(payload) : payload;
     const headers = await this.getHeaders(config.headers);
 
     return this.httpClient.request({
@@ -50,8 +62,8 @@ export class RestAdapter {
       url,
       headers,
       body: config.method !== 'DELETE' ? body : undefined,
-      onProgress: (_uploaded, _downloaded, _latency) => {
-        // Track metrics if needed
+      onProgress: (uploaded, downloaded, latency) => {
+        this.context.metrics?.recordRequest(uploaded, downloaded, latency);
       },
     });
   }
@@ -70,6 +82,9 @@ export class RestAdapter {
       method: tableRoute.method,
       url,
       headers: await this.getHeaders(),
+      onProgress: (uploaded, downloaded, latency) => {
+        this.context.metrics?.recordRequest(uploaded, downloaded, latency);
+      },
     });
 
     const data = tableRoute.mapResponse ? tableRoute.mapResponse(response) : response;
@@ -80,6 +95,15 @@ export class RestAdapter {
     }
 
     return Array.isArray(data) ? data : [];
+  }
+
+  private getRateLimiter(table: string, config: RateLimitConfig): RateLimiter {
+    let limiter = this.rateLimiters.get(table);
+    if (!limiter) {
+      limiter = new RateLimiter(config);
+      this.rateLimiters.set(table, limiter);
+    }
+    return limiter;
   }
 
   private async getHeaders(

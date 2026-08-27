@@ -18,7 +18,6 @@ import { PullProcessor } from '../pull/pull-processor';
 import { ChangeTracker } from '../push/change-tracker';
 import { RestAdapter } from '../adapters/rest-adapter';
 import { LeaderElection } from '../utils/leader-election';
-import { MetricsCollector } from '../utils/metrics-collector';
 import { OutboxManager } from '../push/outbox-manager';
 
 export class SyncEngine implements ISyncEngine {
@@ -27,28 +26,25 @@ export class SyncEngine implements ISyncEngine {
   private pullProcessor: PullProcessor;
   private changeTracker: ChangeTracker;
   private leaderElection: LeaderElection;
-  private metricsCollector: MetricsCollector;
   private outboxManager: OutboxManager;
 
   private isRunning = false;
   private isPausedFlag = false;
   private isSyncingFlag = false;
   private syncInterval?: number;
-  private pausedTables: Set<string> = new Set();
 
   constructor(
     private db: Dexie,
     private config: SyncConfig
   ) {
     this.context = new SyncContext(db, config);
-    
+
     const adapter = new RestAdapter(config.baseUrl, config.routes, this.context);
     this.pushProcessor = new PushProcessor(db, adapter, this.context);
     this.pullProcessor = new PullProcessor(db, adapter, this.context);
-    
+
     this.changeTracker = new ChangeTracker(db);
     this.leaderElection = new LeaderElection();
-    this.metricsCollector = new MetricsCollector();
     this.outboxManager = new OutboxManager(db);
 
     this.setupEventListeners();
@@ -145,7 +141,7 @@ export class SyncEngine implements ISyncEngine {
 
     this.isSyncingFlag = true;
     this.context.emit('sync-start');
-    this.metricsCollector.recordSyncStart();
+    this.context.metrics.recordSyncStart();
 
     const startTime = Date.now();
 
@@ -154,7 +150,7 @@ export class SyncEngine implements ISyncEngine {
       this.context.emit('push-start');
       const pushResult = await this.pushProcessor.push();
       this.context.emit('push-complete', pushResult);
-      this.metricsCollector.recordPush();
+      this.context.metrics.recordPush();
 
       if (!pushResult.success) {
         this.context.emit('push-error', pushResult.errors);
@@ -164,7 +160,7 @@ export class SyncEngine implements ISyncEngine {
       this.context.emit('pull-start');
       const pullResult = await this.pullProcessor.pull();
       this.context.emit('pull-complete', pullResult);
-      this.metricsCollector.recordPull();
+      this.context.metrics.recordPull();
 
       if (!pullResult.success) {
         this.context.emit('pull-error', pullResult.errors);
@@ -179,7 +175,7 @@ export class SyncEngine implements ISyncEngine {
       };
 
       this.context.emit('sync-complete', result);
-      this.metricsCollector.recordSyncComplete();
+      this.context.metrics.recordSyncComplete();
 
       return result;
     } catch (error) {
@@ -217,9 +213,9 @@ export class SyncEngine implements ISyncEngine {
       isPaused: this.isPausedFlag,
       isOnline: this.context.isOnline(),
       isLeader: this.leaderElection.isLeader(),
-      lastSync: this.metricsCollector.getMetrics().sync.lastSyncCompleted,
-      queueDepth: this.metricsCollector.getMetrics().queue.depth,
-      errors: this.metricsCollector.getMetrics().errors.total,
+      lastSync: this.context.metrics.getMetrics().sync.lastSyncCompleted,
+      queueDepth: this.context.metrics.getMetrics().queue.depth,
+      errors: this.context.metrics.getMetrics().errors.total,
     };
   }
 
@@ -242,15 +238,15 @@ export class SyncEngine implements ISyncEngine {
   async getMetrics(): Promise<SyncMetrics> {
     // Update queue metrics
     const depth = await this.outboxManager.getDepth();
-    this.metricsCollector.updateQueueDepth(depth);
+    this.context.metrics.updateQueueDepth(depth);
 
     const oldest = await this.outboxManager.getOldestItem();
     if (oldest) {
       const age = Date.now() - oldest.createdAt;
-      this.metricsCollector.updateOldestItemAge(age);
+      this.context.metrics.updateOldestItemAge(age);
     }
 
-    return this.metricsCollector.getMetrics();
+    return this.context.metrics.getMetrics();
   }
 
   async isStale(_table: string, _key: string | number): Promise<boolean> {
@@ -259,11 +255,11 @@ export class SyncEngine implements ISyncEngine {
   }
 
   async pauseTable(table: string): Promise<void> {
-    this.pausedTables.add(table);
+    this.context.setTablePaused(table, true);
   }
 
   async resumeTable(table: string): Promise<void> {
-    this.pausedTables.delete(table);
+    this.context.setTablePaused(table, false);
   }
 
   on(event: SyncEvent, handler: EventHandler): () => void {

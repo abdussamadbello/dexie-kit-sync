@@ -32,6 +32,7 @@ export class OutboxManager {
   async getPending(): Promise<OutboxItem[]> {
     const now = Date.now();
     return this.outboxTable
+      .orderBy('createdAt')
       .filter((item) => !item.nextRetryAt || item.nextRetryAt <= now)
       .toArray();
   }

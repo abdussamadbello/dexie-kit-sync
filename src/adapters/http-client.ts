@@ -1,6 +1,30 @@
 import type { SyncError, ConflictError } from '../core/types';
 import { calculateBackoff } from '../utils/backoff';
 
+/**
+ * Retry-After is either delay-seconds ("120") or an HTTP-date
+ * ("Wed, 21 Oct 2026 07:28:00 GMT") per RFC 9110 §10.2.3. `parseInt` alone
+ * silently returns NaN for the date form, which becomes a ~0ms retry delay
+ * instead of honoring the server's requested backoff.
+ */
+export function parseRetryAfterMs(header: string | null): number {
+  const defaultMs = 60000;
+  if (!header) {
+    return defaultMs;
+  }
+
+  if (/^\s*\d+\s*$/.test(header)) {
+    return Number(header) * 1000;
+  }
+
+  const dateMs = Date.parse(header);
+  if (!Number.isNaN(dateMs)) {
+    return Math.max(0, dateMs - Date.now());
+  }
+
+  return defaultMs;
+}
+
 export interface HttpOptions {
   method: string;
   url: string;
@@ -129,7 +153,7 @@ export class HttpClient {
 
     // Rate limit (429)
     if (status === 429) {
-      const retryAfter = parseInt(response.headers.get('Retry-After') || '60') * 1000;
+      const retryAfter = parseRetryAfterMs(response.headers.get('Retry-After'));
       return {
         type: 'quota',
         code: 'RATE_LIMIT',

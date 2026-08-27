@@ -1,9 +1,12 @@
 import type Dexie from 'dexie';
 import type { SyncConfig, SyncContext as ISyncContext, SyncEvent, EventHandler } from './types';
+import { MetricsCollector } from '../utils/metrics-collector';
 
 export class SyncContext implements ISyncContext {
   private eventHandlers: Map<SyncEvent, Set<EventHandler>> = new Map();
   private onlineStatus = true;
+  private pausedTables: Set<string> = new Set();
+  public readonly metrics = new MetricsCollector();
 
   constructor(
     public db: Dexie,
@@ -45,6 +48,18 @@ export class SyncContext implements ISyncContext {
 
   isOnline(): boolean {
     return this.onlineStatus;
+  }
+
+  isTablePaused(table: string): boolean {
+    return this.pausedTables.has(table);
+  }
+
+  setTablePaused(table: string, paused: boolean): void {
+    if (paused) {
+      this.pausedTables.add(table);
+    } else {
+      this.pausedTables.delete(table);
+    }
   }
 
   emit(event: SyncEvent, data?: any): void {

@@ -202,13 +202,22 @@ export interface ErrorContext {
   item?: any;
 }
 
+export interface MetricsRecorder {
+  recordRequest: (bytesUploaded: number, bytesDownloaded: number, latency: number) => void;
+  recordError: (type: string) => void;
+  recordFailedRetry: () => void;
+  recordDeadLetter: () => void;
+}
+
 export interface SyncContext {
   db: Dexie;
   config: SyncConfig;
   getCheckpoint: (scope: string) => Promise<string | number | null>;
   setCheckpoint: (scope: string, revision: string | number) => Promise<void>;
   isOnline: () => boolean;
+  isTablePaused: (table: string) => boolean;
   emit: (event: SyncEvent, data?: any) => void;
+  metrics?: MetricsRecorder;
 }
 
 // ===== Results Types =====
