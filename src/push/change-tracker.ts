@@ -1,6 +1,15 @@
 import type Dexie from 'dexie';
+import type { Transaction } from 'dexie';
 import type { Operation } from '../core/types';
 import { OutboxManager } from './outbox-manager';
+
+/**
+ * Transactions in this set are the sync engine's own writes (e.g. merging a
+ * server response back onto a record after a push). Change tracking skips
+ * them, since re-tracking our own reconciliation write would queue it as a
+ * new outbox item and push it right back to the server forever.
+ */
+export const reconciliationTransactions = new WeakSet<Transaction>();
 
 export class ChangeTracker {
   private outboxManager: OutboxManager;
@@ -15,19 +24,35 @@ export class ChangeTracker {
       const table = this.db.table(tableName);
       if (!table) return;
 
-      // Hook into creating
-      const creatingHook = table.hook('creating', (primKey, obj) => {
-        this.trackChange(tableName, 'create', primKey, obj);
+      const trackChange = (operation: Operation, key: any, obj?: any) =>
+        this.trackChange(tableName, operation, key, obj);
+
+      // Hook into creating. For auto-incrementing primary keys, `primKey` is
+      // not yet known at this point — Dexie only exposes the generated key
+      // via `this.onsuccess` once the write completes. Using `primKey`
+      // directly here would record the create with an undefined key, which
+      // would never match the real id that later update/delete hooks report
+      // for the same record.
+      const creatingHook = table.hook('creating', function (primKey, obj, transaction) {
+        if (reconciliationTransactions.has(transaction)) return;
+        this.onsuccess = (generatedKey) => {
+          trackChange('create', generatedKey ?? primKey, obj);
+        };
       });
 
       // Hook into updating
-      const updatingHook = table.hook('updating', (modifications, primKey, obj) => {
-        this.trackChange(tableName, 'update', primKey, { ...obj, ...modifications });
+      const updatingHook = table.hook('updating', (modifications, primKey, obj, transaction) => {
+        if (reconciliationTransactions.has(transaction)) return;
+        trackChange('update', primKey, { ...obj, ...modifications });
       });
 
-      // Hook into deleting
-      const deletingHook = table.hook('deleting', (primKey) => {
-        this.trackChange(tableName, 'delete', primKey);
+      // Hook into deleting. `obj` (the record as it existed) is captured too —
+      // routes that address the server by a separate serverId field (see the
+      // "ID Strategies" section of the README) need it on the delete request,
+      // since the record is already gone locally by the time this pushes.
+      const deletingHook = table.hook('deleting', (primKey, obj, transaction) => {
+        if (reconciliationTransactions.has(transaction)) return;
+        trackChange('delete', primKey, obj);
       });
 
       this.hooks.set(tableName, { creatingHook, updatingHook, deletingHook });
@@ -49,9 +74,23 @@ export class ChangeTracker {
       return;
     }
 
-    // Add to outbox asynchronously
-    this.outboxManager.add(table, operation, key, obj).catch((error) => {
-      console.error('Failed to track change:', error);
+    // This runs inside the hook of the mutation being tracked, which means
+    // it's still inside that mutation's IndexedDB transaction — one scoped
+    // only to the table being written (e.g. 'posts'). Writing to 'outbox'
+    // (a different table) on that same transaction throws NotFoundError,
+    // since IndexedDB transactions can't touch stores outside their declared
+    // scope. Deferring past the current task lets this write start its own
+    // transaction instead of trying to join that one.
+    queueMicrotask(async () => {
+      try {
+        if (operation === 'delete') {
+          const cancelled = await this.outboxManager.cancelIfNeverSynced(table, key);
+          if (cancelled) return;
+        }
+        await this.outboxManager.add(table, operation, key, obj);
+      } catch (error) {
+        console.error('Failed to track change:', error);
+      }
     });
   }
 }

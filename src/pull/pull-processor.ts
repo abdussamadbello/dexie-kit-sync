@@ -24,11 +24,13 @@ export class PullProcessor {
     };
 
     try {
-      const tables = table
-        ? [table]
-        : Object.keys(this.context.config.routes).filter(
-            (t) => this.context.config.routes[t].pull
-          );
+      const tables = (
+        table
+          ? [table]
+          : Object.keys(this.context.config.routes).filter(
+              (t) => this.context.config.routes[t].pull
+            )
+      ).filter((t) => !this.context.isTablePaused(t));
 
       for (const tableName of tables) {
         try {
@@ -40,6 +42,7 @@ export class PullProcessor {
           result.conflicts += conflicts;
         } catch (error: any) {
           result.errors.push(error);
+          this.context.metrics?.recordError(error?.type || 'unknown');
           console.error(`Failed to pull ${tableName}:`, error);
         }
       }

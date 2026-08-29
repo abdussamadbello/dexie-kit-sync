@@ -28,11 +28,12 @@ npm install @dexie-kit/sync dexie
 import Dexie from 'dexie';
 import { startSync, defineRoutes } from '@dexie-kit/sync';
 
-// 1. Define your database
+// 1. Define your database. Primary keys are client-generated (no `++`) —
+// see "ID Strategies" below for why.
 const db = new Dexie('myapp');
 db.version(1).stores({
-  posts: '++id, title, updatedAt',
-  comments: '++id, postId, content, updatedAt',
+  posts: 'id, title, updatedAt',
+  comments: 'id, postId, content, updatedAt',
 });
 
 // 2. Configure sync routes
@@ -93,8 +94,8 @@ const syncEngine = startSync(db, {
   },
 });
 
-// 4. Use your app normally
-await db.posts.add({ title: 'Hello World' });
+// 4. Use your app normally — the id is assigned on the client
+await db.posts.add({ id: crypto.randomUUID(), title: 'Hello World' });
 
 // Sync happens automatically!
 await syncEngine.start();
@@ -122,6 +123,79 @@ When the same record is modified both locally and on the server, conflicts are r
 ### Leader Election
 
 Only one browser tab performs sync to avoid race conditions. Uses BroadcastChannel API.
+
+## ID Strategies
+
+A record's primary key has to mean the same thing locally and on the server, or updates and deletes end up addressing the wrong resource (or one that doesn't exist yet). The way to guarantee that is to **generate the id on the client** and use it as the Dexie primary key, instead of letting Dexie auto-increment it (`++id`):
+
+```typescript
+db.version(1).stores({
+  posts: 'id, title, updatedAt', // no `++` — the app assigns `id`
+});
+
+await db.posts.add({ id: crypto.randomUUID(), title: 'Hello World' });
+```
+
+This is the pattern used by most offline-first sync systems (PouchDB/CouchDB, RxDB, WatermelonDB, etc.), for good reason:
+
+- The id is known **immediately**, before the record ever reaches the network — so a `comments` row can reference its parent `post.id` correctly even while both are still offline.
+- There's only ever one id for a record. Nothing needs to be reconciled after a push succeeds.
+- Collisions are practically impossible (a `crypto.randomUUID()` has 122 bits of randomness).
+
+If a table used for sync still has an auto-incrementing key, `startSync()` logs a console warning — that's your cue to migrate it.
+
+### Pattern 1 (recommended): the client id is the record's id everywhere
+
+Send the client-generated id on create, and have your backend store it as the record's own primary key rather than generating one:
+
+```typescript
+// Express + Prisma
+app.post('/api/posts', async (req, res) => {
+  const post = await db.posts.create({
+    data: { id: req.body.id, title: req.body.title, updatedAt: new Date() },
+  });
+  res.status(201).json(post);
+});
+```
+
+Nothing needs to be mapped back — `item.id` is correct for every later update/delete.
+
+### Pattern 2: the backend can't accept a client-supplied id
+
+Some backends can't take an externally-supplied primary key (e.g. a legacy table with its own auto-increment sequence). In that case, keep the client id as the **permanent local key** — it's still what the rest of your app, and any local foreign keys, use — and have the server return its own id under a *different* field:
+
+```typescript
+// Server: correlate by the client's id, but keep its own primary key
+app.post('/api/posts', async (req, res) => {
+  const post = await db.posts.create({
+    data: { clientId: req.body.id, title: req.body.title, updatedAt: new Date() },
+  });
+  res.status(201).json({ serverId: post.id, updatedAt: post.updatedAt });
+});
+```
+
+```typescript
+// Client: prefer the server id once known, fall back to the client id
+// for anything that hasn't synced yet
+const routes = defineRoutes({
+  posts: {
+    push: {
+      create: { method: 'POST', url: '/api/posts', body: (item) => item },
+      update: {
+        method: 'PUT',
+        url: (item) => `/api/posts/${item.serverId ?? item.id}`,
+        body: (item) => item,
+      },
+      delete: {
+        method: 'DELETE',
+        url: (item) => `/api/posts/${item.serverId ?? item.id}`,
+      },
+    },
+  },
+});
+```
+
+The server's response is automatically merged back onto the local record (its `serverId` field, in this example) after every successful push — you don't need to do anything else to wire this up. A record created and deleted before it's ever pushed is dropped from the queue entirely rather than synced, so there's no window where a delete has to guess at a `serverId` that was never assigned.
 
 ## API Reference
 
@@ -254,6 +328,7 @@ Your REST API needs:
 2. **Timestamp field** (e.g., `updatedAt`) for delta queries
 3. **Timestamp filtering** (e.g., `?updated_after=1234567890`)
 4. **Standard HTTP status codes**
+5. **Accept the client-generated `id`** on create (see [ID Strategies](#id-strategies)) — or return your own id under a different field if it can't
 
 ### Example Backend (Express.js)
 
@@ -272,6 +347,8 @@ app.get('/api/posts', async (req, res) => {
 });
 
 app.post('/api/posts', async (req, res) => {
+  // req.body.id is the client-generated id — the `id` column must accept an
+  // externally-supplied value rather than auto-incrementing.
   const post = await db.posts.create({
     data: { ...req.body, updatedAt: new Date() }
   });
