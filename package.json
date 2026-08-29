@@ -1,6 +1,6 @@
 {
   "name": "@dexie-kit/sync",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Offline-first sync framework for Dexie.js with REST API support",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
